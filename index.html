@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>JOL // matrix</title>
+<style>
+  :root {
+    --green: #00ff41;
+    --green-dim: #00b32d;
+    --bg: #020c04;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--green);
+    font-family: "Courier New", monospace;
+    overflow: hidden;
+  }
+
+  #matrix {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    opacity: 0.35;
+  }
+
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 0px,
+      rgba(0, 0, 0, 0) 2px,
+      rgba(0, 0, 0, 0.35) 3px
+    );
+  }
+
+  .app {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 12px;
+  }
+
+  header { text-align: center; padding: 4px 0 10px; }
+
+  /* Рамка логотипа — крупнее и заметнее */
+  .logo-frame {
+    display: none;
+    margin: 0 auto;
+    padding: 8px;
+    width: fit-content;
+    border: 1px solid var(--green-dim);
+    border-radius: 12px;
+    background: rgba(0, 12, 4, 0.6);
+    box-shadow: 0 0 30px rgba(0, 255, 65, 0.45);
+    animation: pulse 4s ease-in-out infinite;
+  }
+  .logo-frame img {
+    display: block;
+    max-width: 240px;       /* Увеличили размер */
+    max-height: 110px;
+    width: auto;
+    height: auto;
+    border-radius: 8px;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 18px rgba(0, 255, 65, 0.3); }
+    50%      { box-shadow: 0 0 40px rgba(0, 255, 65, 0.65); }
+  }
+
+  /* Текстовый логотип как запасной вариант */
+  .logo-text {
+    display: none;
+    font-size: 34px;
+    letter-spacing: 10px;
+    color: #d6ffe2;
+    text-shadow: 0 0 12px rgba(0, 255, 65, 0.8);
+  }
+  .logo-text.active, .logo-frame.active { display: block; }
+
+  .subtitle {
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--green-dim);
+    letter-spacing: 2px;
+    animation: glitch 3.5s infinite;
+  }
+  @keyframes glitch {
+    0%, 93%, 100% { transform: none; text-shadow: 0 0 8px rgba(0,255,65,.6); }
+    94% { transform: translateX(-2px) skewX(6deg); }
+    95% { transform: translateX(3px); }
+    96% { transform: translateX(-1px) skewX(-4deg); }
+    97% { transform: none; }
+  }
+
+  #chat {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid var(--green-dim);
+    border-radius: 4px;
+    padding: 10px;
+    background: rgba(0, 12, 4, 0.75);
+    box-shadow: 0 0 18px rgba(0, 255, 65, 0.15) inset;
+  }
+  .msg { margin-bottom: 12px; line-height: 1.45; word-wrap: break-word; }
+  .msg .who { font-size: 11px; letter-spacing: 1px; opacity: 0.7; }
+  .msg.you .who { color: #7fe8ff; }
+  .msg.bot .who { color: var(--green); }
+  .msg .text { font-size: 14px; white-space: pre-wrap; }
+
+  .caret {
+    display: inline-block;
+    width: 8px;
+    height: 15px;
+    background: var(--green);
+    vertical-align: -2px;
+    animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  form { display: flex; gap: 8px; margin-top: 10px; }
+  .prompt { color: var(--green); font-weight: bold; align-self: center; }
+  #input {
+    flex: 1;
+    background: rgba(0, 20, 8, 0.9);
+    border: 1px solid var(--green-dim);
+    color: #d6ffe2;
+    font-family: inherit;
+    font-size: 14px;
+    padding: 10px;
+    outline: none;
+    border-radius: 2px;
+    caret-color: var(--green);
+  }
+  #input:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.4);
+  }
+  button {
+    background: transparent;
+    border: 1px solid var(--green);
+    color: var(--green);
+    font-family: inherit;
+    font-size: 14px;
+    padding: 10px 16px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: 0.15s;
+  }
+  button:hover, button:active {
+    background: var(--green);
+    color: #001a08;
+    box-shadow: 0 0 14px rgba(0, 255, 65, 0.6);
+  }
+
+  .boot { font-size: 12px; color: var(--green-dim); margin-bottom: 10px; }
+</style>
+</head>
+<body>
+<canvas id="matrix"></canvas>
+
+<div class="app">
+  <header>
+    <div class="logo-frame" id="logoFrame">
+      <img id="logoImg" src="logo.png" alt="JOL">
+    </div>
+    <div class="logo-text" id="logoText">J O L</div>
+    <div class="subtitle">// system ready</div>   <!-- Было wake up wanderer, теперь system ready -->
+  </header>
+
+  <div id="chat">
+    <div class="boot" id="bootline"></div>
+  </div>
+
+  <form id="form">
+    <span class="prompt">&gt;</span>
+    <input id="input" autocomplete="off" placeholder="введите запрос...">
+    <button type="submit">SEND</button>
+  </form>
+</div>
+
+<script>
+// ===== дожд из кода =====
+const canvas = document.getElementById("matrix");
+const ctx = canvas.getContext("2d");
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener("resize", resize);
+
+const glyphs = "アカサタナハマヤラワ0123456789$#*+=";
+const fontSize = 16;
+let drops = [];
+
+function initDrops() {
+  const columns = Math.floor(canvas.width / fontSize);
+  drops = Array.from({ length: columns }, () =>
+    Math.floor(Math.random() * (canvas.height / fontSize))
+  );
+}
+initDrops();
+
+function draw() {
+  ctx.fillStyle = "rgba(2, 12, 4, 0.08)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.font = fontSize + "px monospace";
+
+  for (let i = 0; i < drops.length; i++) {
+    const char = glyphs[Math.floor(Math.random() * glyphs.length)];
+    ctx.fillStyle = Math.random() > 0.975 ? "#d6ffe2" : "#00b32d";
+    ctx.fillText(char, i * fontSize, drops[i] * fontSize);
+
+    if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+      drops[i] = 0;
+    }
+    drops[i]++;
+  }
+}
+setInterval(draw, 55);
+
+// ===== логика логотипа: картинка или текст =====
+const logoVariants = ["logo.png", "logo.jpg", "logo.jpeg"];
+const logoFrame = document.getElementById("logoFrame");
+const logoText = document.getElementById("logoText");
+let logoIndex = 0;
+
+function tryLogo() {
+  if (logoIndex >= logoVariants.length) {
+    logoFrame.classList.remove("active");
+    logoText.classList.add("active");
+    return;
+  }
+  document.getElementById("logoImg").src = logoVariants[logoIndex];
+}
+
+const logoImg = document.getElementById("logoImg");
+logoImg.onload = () => {
+  logoFrame.classList.add("active");
+  logoText.classList.remove("active");
+};
+logoImg.onerror = () => {
+  logoIndex++;
+  tryLogo();
+};
+tryLogo();
+
+// ===== печатание текста =====
+function typeText(el, text, speed, done) {
+  let i = 0;
+  (function tick() {
+    if (i < text.length) {
+      el.textContent = text.slice(0, ++i);
+      setTimeout(tick, speed);
+    } else if (done) done();
+  })();
+}
+
+// ===== приветствие =====
+const chat = document.getElementById("chat");
+const bootline = document.getElementById("bootline");
+const bootMsg = "> Connection established. Access granted. Ask anything, wanderer.";
+
+typeText(bootline, bootMsg, 30);
+
+// ===== добавление сообщений =====
+function addMsg(cls, who, text) {
+  const div = document.createElement("div");
+  div.className = "msg " + cls;
+  div.innerHTML =
+    '<div class="who">' + who + "</div>" +
+    '<div class="text"><span class="typed"></span><span class="caret"></span></div>';
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  const typed = div.querySelector(".typed");
+  const caret = div.querySelector(".caret");
+  typeText(typed, text, 18, () => caret.remove());
+}
+
+// ===== отправка =====
+const API_URL = "http://localhost:3000/chat"; // <-- адрес твоего Rust-бота
+
+async function sendRequest(userText) {
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: userText })
+    });
+    if (!response.ok) {
+      throw new Error("Ошибка сервера: " + response.status);
+    }
+    const data = await response.json();
+    const botReply = data.reply || "Нет ответа от бота.";
+    addMsg("bot", "JOL >>> " + new Date().toLocaleTimeString(), botReply);
+  } catch (err) {
+    addMsg("bot", "JOL >>> " + new Date().toLocaleTimeString(),
+      "Демо-режим: сервер недоступен. Ваш запрос принят: \"" + userText + "\"");
+  }
+}
+
+document.getElementById("form").addEventListener("submit", function (e) {
+  e.preventDefault();
+  const input = document.getElementById("input");
+  const value = input.value.trim();
+  if (!value) return;
+
+  addMsg("you", "USER >_> " + new Date().toLocaleTimeString(), value);
+  input.value = "";
+
+  sendRequest(value);
+});
+</script>
+</body>
+</html>
